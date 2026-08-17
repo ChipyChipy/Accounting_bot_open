@@ -49,7 +49,7 @@ GEMINI_API_KEY=your_gemini_api_key
 GAS_API_URL=your_google_apps_script_web_app_url
 ```
 
-You will get the first two credentials once you build your own LINE Bot. Remember to enable the Webhook feature in the LINE Developers Console and verify it. (For local testing, LINE requires an HTTP tunnel like ngrok, but for online deployment, your Webhook URL will be configured in step 4).
+*You will get the first two credentials once you build your own LINE Bot. Remember to enable the Webhook feature in the LINE Developers Console and verify it. (For local testing, LINE requires an HTTP tunnel like ngrok, but for online deployment, your Webhook URL will be configured in step 4).*
 
 ### 3. Google Apps Script (GAS) Setup
 
@@ -57,20 +57,22 @@ You will get the first two credentials once you build your own LINE Bot. Remembe
 2. Replace the editor code with the code from gas/Code.gs in this project.
 3. Click Deploy -> New deployment.
 4. Choose Web app as the type:
-    - Execute as: Me
-    - Who has access: Anyone
-5. Copy the generated Web App URL and set it as GAS_API_URL in your .env file.
+    - Execute as: *Me*
+    - Who has access: *Anyone*
+5. Copy the generated Web App URL and set it as `GAS_API_URL` in your *.env* file.
 
 ### Run the Application
 
-`python main.py`
+```bash
+python main.py
+```
 
 ---
 
 ## 🌐 Cloud Deployment (e.g., Render)
 
-1. Push your code to GitHub.
-2. Create a new Web Service on Render and connect your repository.
+1. Push your code to *GitHub*.
+2. Create a new Web Service on *Render* and connect your repository.
 3. Build Command: pip install -r requirements.txt
 4. Start Command: gunicorn main:app
 5. Configure the Environment Variables in Render with your .env values.
