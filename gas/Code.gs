@@ -80,8 +80,28 @@ function doPost(e) {
 
       // 執行更新（有傳值的才覆蓋，null 的保持原樣）
       if (targetRow > 1) {
+        // 🎯【新增】：更新日期時間 (A欄)
+        if (data.date || data.time) {
+          var currentRowFullTime = sheet.getRange(targetRow, 1).getValue().toString();
+          var currentDate = data.date || currentRowFullTime.split(" ")[0];
+          var currentTime = data.time || (currentRowFullTime.split(" ")[1] || "00:00");
+          
+          // 強制補零處理
+          var timeParts = currentTime.split(":");
+          if (timeParts.length === 2) {
+            currentTime = timeParts[0].padStart(2, "0") + ":" + timeParts[1].padStart(2, "0");
+          }
+          
+          var newFullTime = currentDate + " " + currentTime;
+          var timeCell = sheet.getRange(targetRow, 1);
+          timeCell.setNumberFormat("@");
+          timeCell.setValue(newFullTime);
+        }
+
         if (data.category) sheet.getRange(targetRow, 2).setValue(data.category);
         if (data.item) sheet.getRange(targetRow, 3).setValue(data.item);
+        
+        // 🎯【重點修正】：改用嚴格判斷，確保金額為 0 時能正確寫入
         if (data.price !== null && data.price !== undefined) {
           sheet.getRange(targetRow, 4).setValue(data.price);
         }
@@ -107,7 +127,7 @@ function doPost(e) {
       }
     }
 
-// --- 3. 處理新增邏輯 (add) ---
+    // --- 3. 處理新增邏輯 (add) ---
     if (action === "add") {
       // 日期與時間格式化補零處理
       var formattedDate = data.date || Utilities.formatDate(new Date(), "GMT+8", "yyyy-MM-dd");
@@ -141,7 +161,7 @@ function doPost(e) {
       timeCell.setNumberFormat("@");
       timeCell.setValue(fullTime);
 
-      // 🎯【重點修正】：明確設定『新新增的這一列』各欄位的對齊方式
+      // 🎯 明確設定『新新增的這一列』各欄位的對齊方式
       sheet.getRange(newLastRow, 1).setHorizontalAlignment("center"); // A欄: 日期時間置中
       sheet.getRange(newLastRow, 2).setHorizontalAlignment("center"); // B欄: 類別置中
       sheet.getRange(newLastRow, 4, 1, 3).setHorizontalAlignment("center"); // D, E, F欄: 金額置中
