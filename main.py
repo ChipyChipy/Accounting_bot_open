@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from google import genai 
 from dotenv import load_dotenv
 import time
+from google.genai import types
 
 load_dotenv()
 
@@ -65,13 +66,13 @@ def get_system_prompt():
     
     return f"""你是一個專業的記帳 Agent。你的任務是解析使用者傳來的「文字訊息」或「Email 內文」，並輸出嚴格的 JSON 格式。
 
-當前時間基準：{now_time}
+當前系統時間基準：{now_time}
 
 【時間與日期規則】
 1. date (日期) 與 time (時間)：
-   - 請以【交易發生當下】或【收到信件的時間】為準（預設參考當前時間基準：{now_time}）。
-   - 【重點限制】：解析高鐵/台鐵/班機等票券 Email 時，【嚴禁】拿票面上的「出發時間/搭乘時間」充當記帳時間！必須使用刷卡/通知時間或當前時間。
-   - time 格式必須嚴格補零為 24 小時制的 HH:mm (例如：07:00、09:05、14:30)。
+   - 請以【交易發生當下】或【收到信件的時間】為準，若使用者提及相對時間（例如「昨天」、「上週三」、「下午五點」），【必須】嚴格以當前系統時間基準 ({now_time}) 計算出精準的絕對日期 (YYYY-MM-DD) 與時間 (HH:mm)。
+   - 解析高鐵/台鐵/班機等票券 Email 時，【嚴禁】拿票面上的「出發時間/搭乘時間」充當記帳時間！必須使用刷卡/通知時間或當前時間。
+   - time 格式必須嚴格補零為 24 小時制的 HH:mm (例如：07:00、09:05、17:00)。
 
 【分類規則】
 1. 類別限定為：餐飲、交通、日用、服飾、娛樂、其他。
@@ -95,7 +96,14 @@ def get_system_prompt():
 2. 欄位補全機制 (當 action 為 update 時)：
    - target_price / target_item：用於定位舊資料。若使用者未明確提及舊金額或舊項目，請填 null，由系統自動鎖定最新紀錄。
    - advance_payment：若語意表達「自己全付、請客、取消平分」，代表無人代墊，請傳 0。若未提及變動則傳 null（保持舊值）。
-   - 未提及變動的欄位（如 price, category, item, note）：若語意中無相關新資訊，請傳 null，避免覆蓋原資料。
+   - 未提及變動的欄位（如 price, category, item, note, date, time）：若語意中無相關新資訊，請傳 null，避免覆蓋原資料。
+
+【相對時間與特例解析規則】
+1. 「同一天 / 當天」：
+   - 代表【日期保持原紀錄不變】，僅針對使用者提及的新時間點（如「同一天的下午五點」）修改 time 欄位，date 請傳 null。
+2. 「同一時間 / 剛才的時間」：
+   - 代表【時間保持原紀錄不變】，僅針對使用者提及的新日期（如「昨天的同一時間」）修改 date 欄位，time 請傳 null。
+3. 若使用者未明確提及日期或時間變更，請將未變動的 date 或 time 傳 null，由後端 GAS 保持原資料。   
 
 請嚴格輸出 JSON 格式（絕對不要包含 ```json 或 ``` 等 markdown 標籤）：
 {{
@@ -103,12 +111,12 @@ def get_system_prompt():
     "target_price": 修改目標金額 (若 action 為 update 且有舊金額才填，否則 null),
     "target_item": "修改目標舊店家關鍵字 (若 action 為 update 且有舊項目才填，否則 null)",
     "item": "店家或項目名稱 (若為 update 且未變更可為 null)",
-    "price": 消費總金額數字,
-    "category": "分類",
-    "advance_payment": 代墊金額數字,
-    "note": "備註說明 (照 Email 解析專屬規則填寫，無備註則填 null)",
-    "date": "YYYY-MM-DD",
-    "time": "HH:MM"
+    "price": 消費總金額數字 (若未變更可為 null),
+    "category": "分類 (若未變更可為 null)",
+    "advance_payment": 代墊金額數字 (若未變更可為 null),
+    "note": "備註說明 (照Email解析專屬規則填寫，無備註則填null)",
+    "date": "YYYY-MM-DD (若未變更可為 null)",
+    "time": "HH:MM (若未變更可為 null)"
 }}
 """
 
@@ -131,6 +139,9 @@ def process_email():
         response = client.models.generate_content(
             model='gemini-3.1-flash-lite',
             contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.0
+            )
         )
         
         parsed = clean_and_parse_json(response.text)
@@ -200,6 +211,9 @@ def process_line():
                 response = client.models.generate_content(
                     model='gemini-3.1-flash-lite',
                     contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.0
+                    )
                 )
 
                 parsed = clean_and_parse_json(response.text)
@@ -212,26 +226,38 @@ def process_line():
                 gas_res = requests.post(GAS_API_URL, json=parsed).json()
                 action_type = gas_res.get("action", "added")
 
+                parsed_date = parsed.get("date")
+                parsed_time = parsed.get("time")
+                time_info = f"{parsed_date} {parsed_time}".strip() if (parsed_date or parsed_time) else "未調整時間"
+
                 reply_prompt = f"""
 你是一個嚴謹但親切個人記帳助手。請根據以下記帳結果，用一句簡短、自然、口語且帶有適當表情符號的繁體中文文字回覆使用者。
 
 使用者剛剛傳的訊息："{user_msg}"
 處理動作：{"修改舊紀錄" if action_type == "updated" else "新增紀錄"}
 最後項目名稱：{parsed.get('item') or "原本項目"}
-最後總金額：{f"${parsed.get('price')}" if parsed.get('price') else "維持原金額"}
-代墊金額：{parsed.get('advance_payment')} (若為0代表無代墊/全額自付)
+最後總金額：{f"${parsed.get('price')}" if parsed.get('price') is not None else "維持原金額"}
+代墊金額：{parsed.get('advance_payment')} (若為 null 保持原樣，若為 0 代表全額自付)
 分類：{parsed.get('category')}
+修改時間結果：{time_info}
 
 要求：
-1. 語氣自然親切，不要死板。
-2. 若是單純記帳，只能輸出[✅【記帳成功】](下一行) [項目名稱] [金額] ([類別])
-3. 若是關於「修改」，開頭必須為[✏【修改成功】](下一行)，接著必須簡短（不可超過15字，不用閒聊或贅詞）、清楚讓使用者知道「最後幫他改成什麼了」即可，不用問候。
-4. 嚴格禁止輸出 JSON 或 markdown code block，直接輸出回覆純文字。
+1. 語氣自然親切，不可死板。
+2. 若是單純新增記帳，輸出格式必須為：
+✅【記帳成功】
+[項目名稱] $[金額] ([類別]) [適當Emoji]
+3. 若是關於「修改」，開頭必須為✏️【修改成功】，接著換行並簡短（不可超過15字，不用閒聊或贅詞）、清楚讓使用者知道「最後幫他改成什麼了」即可，不用問候。
+4. 標點符號與 Emoji 規範：句尾若有表情符號，請不要在表情符號前面加上句號「。」（範例：『調整為明天早上九點囉！🗓️』或『已為您更新！⏰』，避免出現『。⏰』）。
+5. 嚴格禁止輸出 JSON 或 markdown code block，直接輸出回覆純文字。
+
 """
                 
                 reply_response = client.models.generate_content(
                     model='gemini-3.1-flash-lite',
                     contents=reply_prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.2
+                    )
                 )
                 reply_text = reply_response.text.strip()
 
