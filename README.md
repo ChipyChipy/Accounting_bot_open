@@ -12,6 +12,8 @@ It parses transaction details directly from **LINE messages** and **Email notifi
 * ✏️ **Smart Editing via Reply**: Modify existing transaction records seamlessly by quoting/replying to previous messages in LINE.
 * 📊 **Automated Google Sheets Management**: GAS handles dynamic monthly sheet creation (e.g., `2026_01`), formatting, and row management automatically.
 * ⚡ **Deduplication Safeguard**: In-memory caching prevents duplicate email triggers within short time intervals.
+* 📈 **Scheduled Summaries**: Supports dynamic summary commands (本日/週/月結算, 上月結算) with automated QuickChart pie chart generation and spending stats to keep your finances on track easily.
+* 🏆 **Achievement System**: Newly added achievement push system! Keep tracking your expenses to unlock the ultimate achievements.
 
 ## 🛠️ Tech Stack
 
@@ -62,6 +64,8 @@ GAS_API_URL=your_google_apps_script_web_app_url
     - Execute as: *Me*
     - Who has access: *Anyone*
 5. Copy the generated Web App URL and set it as `GAS_API_URL` in your `.env` file.
+
+*Once the GAS deployment is complete, you can sit back and relax—all remaining sheet creations will be handled automatically. This includes monthly sheets and a master `Statistics` sheet. Additionally, you can configure whether to push pie charts during summaries, toggle achievement displays, and set your default budgets directly inside the `Statistics` sheet.*
 
 ### 4. Run the Application
 
@@ -120,8 +124,10 @@ To automatically trigger backend tracking upon receiving transaction emails:
 * 📩 **Email自動記帳**：解析刷卡通知、購票通知等寄送Email的消費項目，自動寫入Google Sheet並發送LINE訊息通知。
 * 💬 **LINE機器人互動**：直接傳送口語記帳訊息，如「大冰美35」即可自動分類、擷取金額、項目並回覆。
 * ✏️ **智慧修改紀錄**：支援回覆（Reply）舊訊息精準選中資料進行修正。
-* 📊 **Google Sheet自動化**：利用GAS自動建立按月分頁（如 `2026_01`），並有美美乾淨的表格編排。
+* 📊 **Google Sheet自動化**：利用GAS自動建立按月分頁（如 `2026_01`）以及統計總表，並有美美乾淨的表格編排。
 * ⚡ **防重複觸發**：內建快取機制，防止短時間內重複記帳。
+* 📈 **定期結算功能**：支援輸入「本日/週/月結算」、「上月結算」，自動產出QuickChart圓餅圖與消費統計，輕鬆掌握消費狀況。
+* 🏆 **成就推播**：本次新增了成就推播功能！努力記帳，嘗試解鎖終極成就吧。   
 
 ## 🛠️ 技術棧
 
@@ -172,6 +178,8 @@ GAS_API_URL=your_google_apps_script_web_app_url
     - 執行身分： *我 (Me)*
     - 誰有存取權： *任何人 (Anyone)*
 5. 複製取得的Web App URL，並填入`.env`中的`GAS_API_URL`
+
+*一旦GAS部署好，就可以放手了，剩下所有建立工作表的工作都將會自動完成，包含每月的工作表，以及一張Statistics總表，另外，「結算」時是否推播圓餅圖、是否想要顯示成就系統以及你的默認預算都可以在Statistics分頁設定*
 
 ### 4. 啟動服務
 
