@@ -10,9 +10,9 @@ It parses transaction details directly from **LINE messages** and **Email notifi
 * 📩 **Email Auto-Tracking**: Automatically processes all sort of receipt with email notification, logs data to Google Sheets, and sends push notifications to LINE.
 * 💬 **LINE Bot Interface**: Parse text inputs via conversational AI, automatically categorizing expenses, extracting items, and determining totals.
 * ✏️ **Smart Editing via Reply**: Modify existing transaction records seamlessly by quoting/replying to previous messages in LINE.
-* 📊 **Automated Google Sheets Management**: GAS handles dynamic monthly sheet creation (e.g., `2026_01`), formatting, and row management automatically.
+* 📊 **Automated Google Sheets Management**: GAS automatically handles monthly sheets (e.g., `2026_01`) and a master `Statistics` sheet, all styled with clean, beautiful formatting.
 * ⚡ **Deduplication Safeguard**: In-memory caching prevents duplicate email triggers within short time intervals.
-* 📈 **Scheduled Summaries**: Supports dynamic summary commands (本日/週/月結算, 上月結算) with automated QuickChart pie chart generation and spending stats to keep your finances on track easily.
+* 📈 **Scheduled Summaries**: Supports dynamic summary commands (`本日/週/月結算, 上月結算`) with automated QuickChart pie chart generation and spending stats to keep your finances on track easily.
 * 🏆 **Achievement System**: Newly added achievement push system! Keep tracking your expenses to unlock the ultimate achievements.
 
 ## 🛠️ Tech Stack
@@ -124,9 +124,9 @@ To automatically trigger backend tracking upon receiving transaction emails:
 * 📩 **Email自動記帳**：解析刷卡通知、購票通知等寄送Email的消費項目，自動寫入Google Sheet並發送LINE訊息通知。
 * 💬 **LINE機器人互動**：直接傳送口語記帳訊息，如「大冰美35」即可自動分類、擷取金額、項目並回覆。
 * ✏️ **智慧修改紀錄**：支援回覆（Reply）舊訊息精準選中資料進行修正。
-* 📊 **Google Sheet自動化**：利用GAS自動建立按月分頁（如 `2026_01`）以及統計總表，並有美美乾淨的表格編排。
+* 📊 **Google Sheet自動化**：利用GAS自動建立按月分頁（如 `2026_01`）以及統計總表`Statistics`，並有美美乾淨的表格編排。
 * ⚡ **防重複觸發**：內建快取機制，防止短時間內重複記帳。
-* 📈 **定期結算功能**：支援輸入「本日/週/月結算」、「上月結算」，自動產出QuickChart圓餅圖與消費統計，輕鬆掌握消費狀況。
+* 📈 **定期結算功能**：支援輸入「`本日/週/月結算`」、「`上月結算`」，自動產出QuickChart圓餅圖與消費統計，輕鬆掌握消費狀況。
 * 🏆 **成就推播**：本次新增了成就推播功能！努力記帳，嘗試解鎖終極成就吧。   
 
 ## 🛠️ 技術棧
