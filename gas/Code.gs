@@ -187,8 +187,8 @@ function getSummaryData(ss, type, currentSheetName) {
   // 🎯 讀取 Statistics 設定 (更嚴謹的 OFF 比對，防呆大小寫與空白)
   if (statSheet) {
     try {
-      var valR1 = String(statSheet.getRange("R1").getValue()).trim().toUpperCase();
-      var valT1 = String(statSheet.getRange("T1").getValue()).trim().toUpperCase();
+      var valR1 = String(statSheet.getRange("P1").getValue()).trim().toUpperCase();
+      var valT1 = String(statSheet.getRange("R1").getValue()).trim().toUpperCase();
       
       if (valR1 === "OFF") showChart = false;
       if (valT1 === "OFF") showAchievements = false;
