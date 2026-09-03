@@ -8,22 +8,33 @@ function doPost(e) {
     var now = new Date();
     var defaultSheetName = Utilities.formatDate(now, "GMT+8", "yyyy_MM");
 
-    initOrUpdateStatisticsSheet(ss, defaultSheetName);
-
-    var action = data.action || "add"; 
+    var action = data.action || "add";
     var sheetName = data.sheet_name || defaultSheetName;
 
+    // summary 不需要為了查詢而強制建立月份表或 Statistics
     if (action === "summary") {
       var summaryResult = getSummaryData(ss, data.summary_type, sheetName);
       return ContentService.createTextOutput(JSON.stringify(summaryResult))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    // 先確認真正要操作的月份工作表存在
     var sheet = ss.getSheetByName(sheetName);
 
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
-      var headers = ["日期時間", "類別", "項目名稱", "總金額", "代墊金額", "實付金額", "備註/支付方式", "LINE_Msg_ID"];
+
+      var headers = [
+        "日期時間",
+        "類別",
+        "項目名稱",
+        "總金額",
+        "代墊金額",
+        "實付金額",
+        "備註/支付方式",
+        "LINE_Msg_ID"
+      ];
+
       sheet.appendRow(headers);
 
       var headerRange = sheet.getRange("A1:H1");
@@ -46,6 +57,9 @@ function doPost(e) {
       sheet.getRange("D:F").setHorizontalAlignment("center");
       sheet.getRange("H:H").setHorizontalAlignment("center");
     }
+
+    // 到這裡月份工作表已經確定存在，再更新 Statistics
+    initOrUpdateStatisticsSheet(ss, sheetName);
 
     if (action === "update") {
       var quotedMsgId = data.quoted_message_id;
@@ -504,11 +518,30 @@ function checkAchievements(rows, summaryType, allSheetData) {
  */
 function initOrUpdateStatisticsSheet(ss, currentSheetName) {
   var statSheet = ss.getSheetByName("Statistics");
+  var isNewStatistics = false;
 
+  // =========================================================
+  // 1. Statistics 不存在 → 建立
+  // =========================================================
   if (!statSheet) {
     statSheet = ss.insertSheet("Statistics");
+    isNewStatistics = true;
 
-    var headers = ["月份", "總支出", "總代墊", "預算/收入", "結餘", "餐飲", "交通", "日用", "服飾", "娛樂", "其他", "收入"];
+    var headers = [
+      "月份",
+      "總支出",
+      "總代墊",
+      "預算/收入",
+      "結餘",
+      "餐飲",
+      "交通",
+      "日用",
+      "服飾",
+      "娛樂",
+      "其他",
+      "收入"
+    ];
+
     statSheet.getRange("A1:L1").setValues([headers]);
 
     var mainHeaderRange = statSheet.getRange("A1:L1");
@@ -523,13 +556,14 @@ function initOrUpdateStatisticsSheet(ss, currentSheetName) {
     statSheet.setColumnWidth(4, 110);
     statSheet.setColumnWidth(5, 110);
 
-    // 🎯 移除推播設定後的 configData (縮減至 T1)
+    // 系統設定
     var configData = [
       "⚙️ 系統設定",
       "結算包含統計圖卡", "ON",
       "結算包含趣味統計", "ON",
       "預設每月預算/收入", 0
     ];
+
     statSheet.getRange("N1:T1").setValues([configData]);
 
     var mainTitleRange = statSheet.getRange("N1");
@@ -538,7 +572,6 @@ function initOrUpdateStatisticsSheet(ss, currentSheetName) {
     mainTitleRange.setFontWeight("bold");
     mainTitleRange.setHorizontalAlignment("center");
 
-    // 🎯 標籤與數值儲存格範圍調整
     var labelRangeList = statSheet.getRangeList(["O1", "Q1", "S1"]);
     labelRangeList.setBackground("#ECEFF1");
     labelRangeList.setFontWeight("bold");
@@ -549,57 +582,154 @@ function initOrUpdateStatisticsSheet(ss, currentSheetName) {
     valRangeList.setFontWeight("bold");
     valRangeList.setHorizontalAlignment("center");
 
-    // 🎯 下拉選單驗證（設定給 P1 與 R1）
-    var rule = SpreadsheetApp.newDataValidation().requireValueInList(["ON", "OFF"]).build();
+    var rule = SpreadsheetApp
+      .newDataValidation()
+      .requireValueInList(["ON", "OFF"])
+      .build();
+
     statSheet.getRange("P1").setDataValidation(rule);
     statSheet.getRange("R1").setDataValidation(rule);
 
-    // 🎯 欄寬調整 (N1 ~ T1)
-    statSheet.setColumnWidth(14, 120); // N: 系統設定
-    statSheet.setColumnWidth(15, 220); // O: 結算包含統計圖卡
-    statSheet.setColumnWidth(16, 80);  // P: ON/OFF
-    statSheet.setColumnWidth(17, 220); // Q: 結算包含趣味統計
-    statSheet.setColumnWidth(18, 80);  // R: ON/OFF
-    statSheet.setColumnWidth(19, 220); // S: 預設每月預算/收入
-    statSheet.setColumnWidth(20, 100); // T: 0 (預算金額)
+    statSheet.setColumnWidth(14, 120);
+    statSheet.setColumnWidth(15, 220);
+    statSheet.setColumnWidth(16, 80);
+    statSheet.setColumnWidth(17, 220);
+    statSheet.setColumnWidth(18, 80);
+    statSheet.setColumnWidth(19, 220);
+    statSheet.setColumnWidth(20, 100);
   }
 
   statSheet.setFrozenRows(1);
   statSheet.setFrozenColumns(1);
 
+
+  // =========================================================
+  // 2. 共用函式：建立某月份的 Statistics row
+  // =========================================================
+  function buildStatisticsRow(sheetName, rowNumber) {
+    var monthCell = "'" + sheetName + "'";
+
+    return [
+      sheetName,
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "<>收入", ' +
+        monthCell + '!F:F)',
+
+      '=SUM(' + monthCell + '!E:E)',
+
+      '=$T$1 + L' + rowNumber,
+
+      '=D' + rowNumber + '-B' + rowNumber,
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "餐飲", ' +
+        monthCell + '!F:F)',
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "交通", ' +
+        monthCell + '!F:F)',
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "日用", ' +
+        monthCell + '!F:F)',
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "服飾", ' +
+        monthCell + '!F:F)',
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "娛樂", ' +
+        monthCell + '!F:F)',
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "其他", ' +
+        monthCell + '!F:F)',
+
+      '=SUMIF(' + monthCell +
+        '!B:B, "收入", ' +
+        monthCell + '!F:F)'
+    ];
+  }
+
+
+  // =========================================================
+  // 3. Statistics 剛建立 → 掃描所有月份工作表並重建
+  // =========================================================
+  if (isNewStatistics) {
+
+    var monthSheets = ss.getSheets()
+      .map(function(sheet) {
+        return sheet.getName();
+      })
+      .filter(function(name) {
+        return /^\d{4}_\d{2}$/.test(name);
+      })
+      .sort()
+      .reverse();
+
+    for (var i = 0; i < monthSheets.length; i++) {
+      var rowNumber = i + 2;
+
+      var rowData = buildStatisticsRow(
+        monthSheets[i],
+        rowNumber
+      );
+
+      statSheet
+        .getRange(rowNumber, 1, 1, 12)
+        .setValues([rowData]);
+
+      statSheet
+        .getRange(rowNumber, 1, 1, 12)
+        .setHorizontalAlignment("center");
+
+      var monthColCell = statSheet.getRange(rowNumber, 1);
+      monthColCell.setBackground("#E0F7FA");
+      monthColCell.setFontWeight("bold");
+    }
+
+    return;
+  }
+
+
+  // =========================================================
+  // 4. Statistics 已存在 → 檢查本月份是否已經有資料
+  // =========================================================
   var lastRow = statSheet.getLastRow();
   var exists = false;
 
   if (lastRow >= 2) {
-    var monthValues = statSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    var monthValues = statSheet
+      .getRange(2, 1, lastRow - 1, 1)
+      .getValues();
+
     for (var r = 0; r < monthValues.length; r++) {
-      if (monthValues[r][0].toString() === currentSheetName) {
+      if (
+        monthValues[r][0].toString() === currentSheetName
+      ) {
         exists = true;
         break;
       }
     }
   }
 
+
+  // =========================================================
+  // 5. 新月份 → 插到最上方，舊月份往下推
+  // =========================================================
   if (!exists) {
+
     statSheet.insertRowBefore(2);
 
-    var monthCell = `'${currentSheetName}'`;
-    var rowData = [
+    var rowData = buildStatisticsRow(
       currentSheetName,
-      `=SUMIF(${monthCell}!B:B, "<>收入", ${monthCell}!F:F)`,
-      `=SUM(${monthCell}!E:E)`,
-      `=$T$1 + L2`, // 🎯 預設預算儲存格從 $V$1 改為 $T$1
-      `=D2-B2`,
-      `=SUMIF(${monthCell}!B:B, "餐飲", ${monthCell}!F:F)`,
-      `=SUMIF(${monthCell}!B:B, "交通", ${monthCell}!F:F)`,
-      `=SUMIF(${monthCell}!B:B, "日用", ${monthCell}!F:F)`,
-      `=SUMIF(${monthCell}!B:B, "服飾", ${monthCell}!F:F)`,
-      `=SUMIF(${monthCell}!B:B, "娛樂", ${monthCell}!F:F)`,
-      `=SUMIF(${monthCell}!B:B, "其他", ${monthCell}!F:F)`,
-      `=SUMIF(${monthCell}!B:B, "收入", ${monthCell}!F:F)`
-    ];
+      2
+    );
 
-    var targetRange = statSheet.getRange(2, 1, 1, 12);
+    var targetRange =
+      statSheet.getRange(2, 1, 1, 12);
+
     targetRange.setValues([rowData]);
     targetRange.setHorizontalAlignment("center");
 
